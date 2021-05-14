@@ -1,0 +1,159 @@
+
+<header>
+  <title>Web Bluetooth Example</title>
+</header>
+
+<body>
+
+
+<form id='connect'>
+    <button>Connect with BLE device</button>
+    
+</form>
+<form id='disconnect'>
+  <button>Disconnect with BLE device</button>
+</form>
+  <div id="ble"></div>
+  <script>
+    var deviceName = 'Nordic_HRM'
+    var bluetoothDevice;
+  
+    function isWebBluetoothEnabled() {
+      if (!navigator.bluetooth) {
+        console.log('Web Bluetooth API is not available in this browser!')
+        return false
+      }
+  
+      return true
+    }
+  
+    function getDeviceInfo() {
+      let options = {
+        acceptAllDevices: true, // Option to accept all devices
+        optionalServices: [0x2a37], //[0x180D]//, 0x180F, 0x180A]
+        // "filters": [
+        //   { "name": deviceName }
+        // ]
+      }
+  
+      console.log('Requesting Bluetooth Device...')
+      navigator.bluetooth.requestDevice(options).then(device => {
+        console.log('> Name: ' + device.name)
+        console.log(device);
+        bluetoothDevice = device;
+        return device.gatt.connect();
+      }).then(server => {
+        console.log('Getting services...');
+        console.log(server);
+        return server.getPrimaryServices(0x180D);
+      }).then (services => {
+        //setInterval(() => {
+          console.log('getting characteristics...services: ', services);
+          var queue = Promise.resolve();
+          services.forEach(service => {
+  
+            queue = queue.then(_ => service.getCharacteristics().then(characteristics => {
+              console.log('>Service: ' + service.uuid);
+              characteristics.forEach(characteristic => {
+                console.log(characteristic)
+                var supportedProperties = getSupportedProperties(characteristic);
+                //console.log('>>Characteristic: ' + characteristic.uuid + '' + supportedProperties);
+                if(supportedProperties.includes('NOTIFY')) {
+                  characteristic.startNotifications().then(()=> {
+                    console.log('notifications started');
+                    characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
+                  });
+                  characteristic.addEventListener('oncharacteristicvaluechanged', handleBatteryLevelChanged);
+  
+                }
+                if(supportedProperties.includes('READ')) {
+                  //characteristic.startNotifications();
+                  //characteristic.addEventListener('oncharacteristicvaluechanged', handleBatteryLevelChanged);
+                  //characteristic.oncharacteristicvaluechanged(handleBatteryLevelChanged);
+                  // setInterval(()=> {
+                    characteristic.readValue().then(result => {
+                      console.log(result.getUint8());
+                      //console.log(ab2str(result.buffer));
+                    });
+                  // }, 1000)
+                }
+              })
+            }).catch(error => {
+              console.log(error);
+            }))
+          })
+
+        //}, 5000)
+      })
+      .catch(error => {
+        console.log('Argh! ' + error)
+      })
+    }
+  
+    function onDisconnectButtonClick() {
+      if (!bluetoothDevice) {
+        return;
+      }
+      log('Disconnecting from Bluetooth Device...');
+      if (bluetoothDevice.gatt.connected) {
+        bluetoothDevice.gatt.disconnect();
+      } else {
+        console.log('> Bluetooth Device is already disconnected');
+      }
+    }
+
+    function onDisconnected(event) {
+      // Object event.target is Bluetooth Device getting disconnected.
+      log('> Bluetooth Device disconnected');
+    }
+
+    document.querySelector('#connect').addEventListener('submit', function(event) {
+      event.stopPropagation()
+      event.preventDefault()
+  
+      if (isWebBluetoothEnabled()) {
+        getDeviceInfo()
+      }
+    })
+    document.querySelector('#disconnect').addEventListener('submit', function(event) {
+      event.stopPropagation()
+      event.preventDefault()
+  
+      if (isWebBluetoothEnabled()) {
+        onDisconnectButtonClick()
+      }
+    })
+    function getSupportedProperties(characteristic) {
+      let supportedProperties = [];
+      for (const p in characteristic.properties) {
+        if (characteristic.properties[p] === true) {
+          supportedProperties.push(p.toUpperCase());
+        }
+      }
+      return '[' + supportedProperties.join(', ') + ']';
+    }
+
+    function ab2str(buf) {
+      var newArr = new Uint8Array(buf)
+      console.log(newArr);
+      return String.fromCharCode.apply(null, newArr);
+    }
+    function handleBatteryLevelChanged(event) {
+      let batteryLevel = event.target.value.getUint8(0);
+      log('> Battery Level is ' + batteryLevel + '%');
+    }
+    function handleNotifications(event) {
+      let value = event.target.value;
+      console.log(value);
+      let a = [];
+      // Convert raw data bytes to hex values just for the sake of showing something.
+      // In the "real" world, you'd use data.getUint8, data.getUint16 or even
+      // TextDecoder to process raw data bytes.
+      for (let i = 0; i < value.byteLength; i++) {
+        a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
+      }
+      console.log('> ' + a.join(' '));
+    }
+  </script>
+
+</body>
