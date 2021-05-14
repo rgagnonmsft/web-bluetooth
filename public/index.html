@@ -86,7 +86,7 @@
       if (!bluetoothDevice) {
         return;
       }
-      log('Disconnecting from Bluetooth Device...');
+      console.log('Disconnecting from Bluetooth Device...');
       if (bluetoothDevice.gatt.connected) {
         bluetoothDevice.gatt.disconnect();
       } else {
@@ -142,6 +142,7 @@
         a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
       }
       console.log('> ' + a.join(' '));
+
     }
   </script>
 
