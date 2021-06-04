@@ -30,7 +30,8 @@
     function getDeviceInfo() {
       let options = {
         acceptAllDevices: true, // Option to accept all devices
-        optionalServices: [0x2a37], //[0x180D]//, 0x180F, 0x180A]
+        optionalServices: [0x180D], //[0x1812], //, 0x2a37], //[0x180D]//, 0x180F, 0x180A]
+        //allowedServices: [0x1812]
         // "filters": [
         //   { "name": deviceName }
         // ]
@@ -45,7 +46,7 @@
       }).then(server => {
         console.log('Getting services...');
         console.log(server);
-        return server.getPrimaryServices(0x180D);
+        return server.getPrimaryServices(0x180D);// 0x1812 = mouse, HRM = 0x180D);
       }).then (services => {
           console.log('getting characteristics...services: ', services);
           var queue = Promise.resolve();
@@ -56,12 +57,16 @@
               characteristics.forEach(characteristic => {
                 console.log(characteristic)
                 var supportedProperties = getSupportedProperties(characteristic);
+                console.log(supportedProperties);
                 if(supportedProperties.includes('NOTIFY')) {
+
                   characteristic.startNotifications().then(()=> {
                     console.log('notifications started');
                     characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
+                  }).catch(error => {
+                    console.log(error);
                   });
-                  characteristic.addEventListener('oncharacteristicvaluechanged', handleBatteryLevelChanged);
+                  //characteristic.addEventListener('oncharacteristicvaluechanged', handleBatteryLevelChanged);
   
                 }
                 if(supportedProperties.includes('READ')) {
@@ -73,7 +78,9 @@
               })
             }).catch(error => {
               console.log(error);
-            }))
+            })).catch(error => {
+              console.log(error);
+            })
           })
 
       })
